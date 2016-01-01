@@ -37,14 +37,15 @@ def dump_cursor(cursor,indent_depth=0, indentation='  ', name='cursor'):
         msg = '{indent}{name}.kind: {kind}, {name}.displayname: {displayname}, len({name}.get_children()): {numchildren}'
         msg = msg.format( indent=indent
                         , name=name
-                        , kind=cursor1.kind
-                        , displayname=cursor1.displayname
+                        , kind=repr(cursor1.kind)
+                        , displayname=repr(cursor1.displayname)
                         , numchildren=len(list(cursor1.get_children())))
         print (msg)
-        msg = '{indent2}- len({name}.get_arguments()): {numargs}'
+        msg = '{indent2}- len({name}.get_arguments()): {numargs}, {name}.spelling: {spelling}'
         msg = msg.format( indent2=indent2
                         , name=name
-                        , numargs=len(list(cursor1.get_arguments())))
+                        , numargs=len(list(cursor1.get_arguments()))
+                        , spelling=repr(cursor1.spelling))
         print (msg)
     
 def find_all_dependent_symbols(predicate):
@@ -62,23 +63,114 @@ def find_all_dependent_symbols(predicate):
         child, = predicate.get_children()
         symbols |= find_all_dependent_symbols(child)
     else:
-        dump_cursor(statement_cursor)
         dump_cursor(predicate)
         assert False, predicate.kind
     return symbols
 
+
+class Predicate:
+    def compute_variables(self):
+        raise NotImplementedError();
+    def evaluate(self, variable_values={}):
+        raise NotImplementedError();
+
+class Not(Predicate):
+    def __init__(self, operand):
+        Predicate.__init__(self)
+        self.operand = operand
+    
+
+class And(Predicate):
+    def __init__(self, operands):
+        Predicate.__init__(self)
+        self.operands = operands
+
+class Or(Predicate):
+    def __init__(self, operands):
+        Predicate.__init__(self)
+        self.operands = operands
+
+class Expression:
+    def __init__(self):
+        self.result_type = None
+
+class Comparison(Predicate):
+    def __init__(self, left, right):
+        Predicate.__init__(self)
+        assert isinstance(left, Expression)
+        assert isinstance(right, Expression)
+        self.left = left
+        self.right = right
+
+
+class Function(Expression):
+    def __init__(self, name, operands, result_type):
+        Expression.__init__(self)
+        for operand in operands:
+            assert isinstance(left, Expression)
+        self.name = name
+        self.operands = operands
+        self.result_type = return_type
+
+
+class BoolFunction(Function):
+    def __init__(self, name, operands):
+        Function.__init__(self)
+        for operand in operands:
+            assert isinstance(left, Expression)
+        self.name = name
+        self.operands = operands
+        self.result_type = 'bool'
+
+class VariableExpression(Expression):
+    def __init__(self, name, result_type):
+        Expression.__init__(self)
+        self.result_type = result_type
+
+def extract_logical_predicate(pcursor):
+    
+    if pcursor.kind == CursorKind.CALL_EXPR:
+        if pcursor.displayname == 'valid_memory':
+            operands = []
+            for acursor in pcursor.get_arguments():
+                operands += extract_logical_predicate(acursor)
+            
+            return Function(name='valid_memory', operands=operands, result_type='bool')
+        dump_cursor(pcursor)
+        assert False, pcursor.kind
+    elif pcursor.kind == CursorKind.DECL_REF_EXPR:
+        symbols.add(pcursor.displayname)
+    elif pcursor.kind == CursorKind.BINARY_OPERATOR:
+        assert len(list(pcursor.get_children())) == 2
+        left, right = pcursor.get_children()
+        
+        dump_cursor(pcursor)
+        assert False, pcursor.kind
+        
+    elif pcursor.kind == CursorKind.UNEXPOSED_EXPR and len(list(pcursor.get_children())) == 1:
+        child, = pcursor.get_children()
+        return extract_logical_predicate(child)
+    else:
+        dump_cursor(pcursor)
+        assert False, pcursor.kind
+        
+
 def add_assumption(fmeta, statement_cursor):
-    symbols = set()
     
     arg_cursors = list(statement_cursor.get_arguments())
     
-    predicate = arg_cursors[0]
+    predicate_cursor = arg_cursors[0]
     
     named_params = arg_cursors[1:]
     
-    find_all_dependent_symbols(predicate)
+    #symbols = find_all_dependent_symbols(predicate)
+    
+    
+    dump_cursor(predicate_cursor)
+    lpred = extract_logical_predicate(predicate_cursor)
     
     print ('symbols:', symbols)
+    
     
 def precondition_pass(f):
     global functions
