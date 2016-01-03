@@ -4,9 +4,9 @@
 
 
 import sys
-from clang.cindex import Index, CursorKind
+from clang34.cindex import Index, CursorKind, Config
 from optparse import OptionParser, OptionGroup
-
+import yaml
 
 
 class FunctionMetaData:
@@ -27,9 +27,26 @@ def walk_preorder(cursor, depth=0):
     for child in cursor.get_children():
         for (descendant,ddepth) in walk_preorder(child,depth+1):
             yield (descendant,ddepth)
-    
+
+def get_info(node, depth=0):
+
+    children = [get_info(c, depth+1)
+                for c in node.get_children()]
+    return { #'id' : get_cursor_id(node),
+             'kind' : node.kind,
+             'usr' : node.get_usr(),
+             'spelling' : node.spelling,
+             'location' : node.location,
+             'extent.start' : node.extent.start,
+             'extent.end' : node.extent.end,
+             'is_definition' : node.is_definition(),
+             'definition id' : get_cursor_id(node.get_definition()),
+             'children' : children }
+
 def dump_cursor(cursor,indent_depth=0, indentation='  ', name='cursor'):
     
+    print (get_info(cursor))
+    return
     
     for cursor1,depth in walk_preorder(cursor):
         indent = (indentation*(indent_depth+depth))
@@ -41,11 +58,13 @@ def dump_cursor(cursor,indent_depth=0, indentation='  ', name='cursor'):
                         , displayname=repr(cursor1.displayname)
                         , numchildren=len(list(cursor1.get_children())))
         print (msg)
-        msg = '{indent2}- len({name}.get_arguments()): {numargs}, {name}.spelling: {spelling}'
+        msg = '{indent2}- len({name}.get_arguments()): {numargs}, {name}.spelling: {spelling}, {name}.result_type: {result_type}'
         msg = msg.format( indent2=indent2
                         , name=name
                         , numargs=len(list(cursor1.get_arguments()))
-                        , spelling=repr(cursor1.spelling))
+                        , spelling=repr(cursor1.spelling)
+                        , result_type=cursor1.get_usr() #'<not implemented>' #list(cursor1.get_tokens())
+                        )
         print (msg)
     
 def find_all_dependent_symbols(predicate):
@@ -198,7 +217,9 @@ def main():
 
     # FIXME: Add an output file option
     out = sys.stdout
-
+    Config.set_library_file('libclang-3.4.so.1')
+    Config.set_library_path('/usr/lib/x86_64-linux-gnu/')
+    
     index = Index.create()
     tu = index.parse(None, args)
     if not tu:
