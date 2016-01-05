@@ -5,8 +5,9 @@
 
 import sys
 from clang34.cindex import Index, CursorKind, Config
+#from clang37.cindex import Index, CursorKind, Config
 from optparse import OptionParser, OptionGroup
-import yaml
+#import yaml
 
 
 class FunctionMetaData:
@@ -40,13 +41,13 @@ def get_info(node, depth=0):
              'extent.start' : node.extent.start,
              'extent.end' : node.extent.end,
              'is_definition' : node.is_definition(),
-             'definition id' : get_cursor_id(node.get_definition()),
+             #'definition id' : get_cursor_id(node.get_definition()),
              'children' : children }
 
 def dump_cursor(cursor,indent_depth=0, indentation='  ', name='cursor'):
     
-    print (get_info(cursor))
-    return
+    #print (get_info(cursor))
+    #return
     
     for cursor1,depth in walk_preorder(cursor):
         indent = (indentation*(indent_depth+depth))
@@ -199,7 +200,7 @@ def precondition_pass(f):
     
     print ('f.kind:',f.kind, 'f.displayname:',f.displayname)
 
-    for cursor in f.walk_preorder():
+    for cursor,depth in walk_preorder(f):
         #print ('    cursor.kind:',cursor.kind, 'cursor.displayname:',cursor.displayname)
         
         if cursor.kind == CursorKind.CALL_EXPR and cursor.displayname == 'contract_assume':
@@ -219,6 +220,8 @@ def main():
     out = sys.stdout
     Config.set_library_file('libclang-3.4.so.1')
     Config.set_library_path('/usr/lib/x86_64-linux-gnu/')
+    #Config.set_library_file('libclang.dll')
+    #Config.set_library_path('~/.local/bin')
     
     index = Index.create()
     tu = index.parse(None, args)
@@ -230,7 +233,7 @@ def main():
     cursor0 = tu.cursor
     
     
-    for cursor in cursor0.walk_preorder():
+    for cursor,depth in walk_preorder(cursor0):
         if cursor.kind == CursorKind.FUNCTION_DECL:
             precondition_pass(cursor)
     
